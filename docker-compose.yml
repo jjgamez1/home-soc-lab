@@ -1,0 +1,169 @@
+# =============================================================================
+# Wazuh 4.7.4 — Single-Node Docker Deployment
+# Home SOC Lab | Author: Jesus Gamez
+#
+# ⚠️  IMPORTANT — READ BEFORE STARTING:
+#     You MUST generate SSL certificates before running `docker compose up`.
+#     Skipping this step will cause the Wazuh Indexer to crash with a TLS error.
+#
+#     Run this first (once only):
+#       docker compose -f generate-indexer-certs.yml run --rm generator
+#
+#     If the certs/ directory contains empty subdirectories instead of .pem
+#     files, delete it and regenerate (see SETUP.md — Troubleshooting).
+#
+# Usage:
+#   Start:   docker compose up -d
+#   Stop:    docker compose down
+#   Logs:    docker compose logs -f wazuh.manager
+#   Status:  docker compose ps
+#
+# Resource Notes (low-RAM host optimization):
+#   - Indexer JVM heap is capped at 512m (adjust if you have more RAM)
+#   - bootstrap.memory_lock prevents indexer memory from being swapped
+#   - Increase heap to 1g+ for production or high-volume environments
+#   - Minimum recommended RAM: 4 GB (8 GB preferred)
+# =============================================================================
+
+services:
+
+  # ── Wazuh Manager ────────────────────────────────────────────────────────────
+  # Core component: receives events from agents, applies rules, generates alerts.
+  # Exposes:
+  #   1514/tcp — agent event forwarding (encrypted)
+  #   1515/tcp — agent auto-enrollment (registration)
+  #   514/udp  — syslog input (optional, for non-agent sources)
+  #   55000/tcp — Wazuh REST API (used by Dashboard)
+  wazuh.manager:
+    image: wazuh/wazuh-manager:4.7.4
+    hostname: wazuh.manager
+    restart: always
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 655360
+        hard: 655360
+    ports:
+      - "1514:1514/tcp"     # Agent event forwarding
+      - "1514:1514/udp"     # Agent event forwarding (UDP fallback)
+      - "1515:1515"         # Agent enrollment
+      - "514:514/udp"       # Syslog
+      - "55000:55000"       # REST API
+    environment:
+      - INDEXER_URL=https://wazuh.indexer:9200
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=SecretPassword
+      - FILEBEAT_SSL_VERIFICATION_MODE=full
+      - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
+      - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
+      - SSL_KEY=/etc/ssl/filebeat.key
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=MyS3cr37P450r.*-
+    volumes:
+      - wazuh_api_configuration:/var/ossec/api/configuration
+      - wazuh_etc:/var/ossec/etc
+      - wazuh_logs:/var/ossec/logs
+      - wazuh_queue:/var/ossec/queue
+      - wazuh_var_multigroups:/var/ossec/var/multigroups
+      - wazuh_integrations:/var/ossec/integrations
+      - wazuh_active_response:/var/ossec/active-response/bin
+      - wazuh_agentless:/var/ossec/agentless
+      - wazuh_wodles:/var/ossec/wodles
+      - filebeat_etc:/etc/filebeat
+      - filebeat_var:/var/lib/filebeat
+      # Mount your custom rules file (edit configs/local_rules.xml on the host)
+      - ./configs/local_rules.xml:/var/ossec/etc/rules/local_rules.xml:ro
+      - ./config/wazuh_indexer_ssl_certs/root-ca-manager.pem:/etc/ssl/root-ca.pem:ro
+      - ./config/wazuh_indexer_ssl_certs/wazuh.manager.pem:/etc/ssl/filebeat.pem:ro
+      - ./config/wazuh_indexer_ssl_certs/wazuh.manager-key.pem:/etc/ssl/filebeat.key:ro
+    networks:
+      - wazuh-net
+
+  # ── Wazuh Indexer (OpenSearch) ────────────────────────────────────────────
+  # Stores and indexes all Wazuh alert data.
+  # OpenSearch is a fork of Elasticsearch used by Wazuh for data storage.
+  # On low-RAM hosts: reduce ES_JAVA_OPTS heap values if needed.
+  wazuh.indexer:
+    image: wazuh/wazuh-indexer:4.7.4
+    hostname: wazuh.indexer
+    restart: always
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"     # OpenSearch REST API (used internally)
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"  # Heap: increase to 1g if RAM allows
+      - "bootstrap.memory_lock=true"               # Prevent memory swapping
+      - INDEXER_PASSWORD=SecretPassword
+    volumes:
+      - wazuh-indexer-data:/var/lib/wazuh-indexer
+      - ./config/wazuh_indexer_ssl_certs/root-ca.pem:/usr/share/wazuh-indexer/certs/root-ca.pem:ro
+      - ./config/wazuh_indexer_ssl_certs/wazuh.indexer-key.pem:/usr/share/wazuh-indexer/certs/wazuh.indexer.key:ro
+      - ./config/wazuh_indexer_ssl_certs/wazuh.indexer.pem:/usr/share/wazuh-indexer/certs/wazuh.indexer.pem:ro
+      - ./config/wazuh_indexer_ssl_certs/admin.pem:/usr/share/wazuh-indexer/certs/admin.pem:ro
+      - ./config/wazuh_indexer_ssl_certs/admin-key.pem:/usr/share/wazuh-indexer/certs/admin-key.pem:ro
+      - ./config/wazuh.indexer/wazuh.yml:/usr/share/wazuh-indexer/opensearch.yml:ro
+      - ./config/wazuh.indexer/internal_users.yml:/usr/share/wazuh-indexer/opensearch-security/internal_users.yml:ro
+    networks:
+      - wazuh-net
+
+  # ── Wazuh Dashboard (OpenSearch Dashboards) ───────────────────────────────
+  # Web UI for viewing alerts, agents, compliance data, and dashboards.
+  # Access at: https://localhost (or https://192.168.1.74)
+  # Default credentials: admin / SecretPassword
+  wazuh.dashboard:
+    image: wazuh/wazuh-dashboard:4.7.4
+    hostname: wazuh.dashboard
+    restart: always
+    ports:
+      - "443:5601"    # HTTPS dashboard — maps container 5601 to host 443
+    environment:
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=SecretPassword
+      - WAZUH_API_URL=https://wazuh.manager
+      - DASHBOARD_USERNAME=kibanaserver
+      - DASHBOARD_PASSWORD=kibanaserver
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=MyS3cr37P450r.*-
+    volumes:
+      - ./config/wazuh_indexer_ssl_certs/wazuh.dashboard.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard.pem:ro
+      - ./config/wazuh_indexer_ssl_certs/wazuh.dashboard-key.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard-key.pem:ro
+      - ./config/wazuh_indexer_ssl_certs/root-ca.pem:/usr/share/wazuh-dashboard/certs/root-ca.pem:ro
+      - ./config/wazuh.dashboard/opensearch_dashboards.yml:/usr/share/wazuh-dashboard/config/opensearch_dashboards.yml:ro
+      - wazuh-dashboard-config:/usr/share/wazuh-dashboard/data/wazuh/config
+      - wazuh-dashboard-custom:/usr/share/wazuh-dashboard/plugins/wazuh/public/assets/custom
+    depends_on:
+      - wazuh.indexer
+    networks:
+      - wazuh-net
+
+# ── Named Volumes ─────────────────────────────────────────────────────────────
+# Docker manages these volumes; data persists across container restarts.
+# To reset all data: docker compose down -v (WARNING: deletes all alert history)
+volumes:
+  wazuh_api_configuration:
+  wazuh_etc:
+  wazuh_logs:
+  wazuh_queue:
+  wazuh_var_multigroups:
+  wazuh_integrations:
+  wazuh_active_response:
+  wazuh_agentless:
+  wazuh_wodles:
+  filebeat_etc:
+  filebeat_var:
+  wazuh-indexer-data:
+  wazuh-dashboard-config:
+  wazuh-dashboard-custom:
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  wazuh-net:
+    driver: bridge

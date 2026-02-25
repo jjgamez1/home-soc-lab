@@ -1,0 +1,82 @@
+# ── Wazuh SSL Certificates ───────────────────────────────────────────────────
+# Never commit private keys or certificates to version control.
+# Generate locally using: docker compose -f generate-indexer-certs.yml run --rm generator
+config/wazuh_indexer_ssl_certs/
+config/wazuh_dashboard_ssl_certs/
+*.pem
+*.key
+*.crt
+*.p12
+
+# ── Wazuh Logs & Runtime Data ────────────────────────────────────────────────
+logs/
+*.log
+*.log.*
+
+# ── Docker Volumes / Bind Mounts ─────────────────────────────────────────────
+# Exclude any local Docker volume bind-mount directories
+volumes/
+
+# ── Environment & Secrets ────────────────────────────────────────────────────
+.env
+.env.*
+secrets/
+*.secret
+*.password
+*.passwd
+credentials/
+
+# ── Screenshots & Assets (optional — comment out to include them) ─────────────
+# Uncomment the lines below if you do NOT want to commit screenshots to git.
+# Large image files inflate repo size and can be stored in a release instead.
+# screenshots/*.png
+# screenshots/*.jpg
+# assets/*.png
+# assets/*.jpg
+
+# ── Operating System Files ────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Editor & IDE Files ────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+
+# ── Temp / Scratch Files ──────────────────────────────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.backup
+scratch/
+tmp/
+
+# ── Python (if any tooling scripts added later) ───────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# ── Archives ──────────────────────────────────────────────────────────────────
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# ── Windows MSI Installers (download-only, not stored in repo) ────────────────
+*.msi
+*.exe
+*.iso
