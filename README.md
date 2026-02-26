@@ -154,7 +154,7 @@ home-soc-lab/
 ### Prerequisites
 
 - Docker Engine + Docker Compose V2
-- VirtualBox 7.x
+- VirtualBox 7.2.4
 - Windows Server 2022 ISO
 - Kali Linux ISO
 - Minimum 8 GB RAM on host (16 GB recommended)
