@@ -8,7 +8,7 @@
 ![License](https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square)
 
 **Author:** Jesus Gamez
-**Tools Used:** Linux Mint · Wazuh 4.7.4 · VirtualBox · Hydra · Windows Firewall · Docker
+**Tools Used:** Linux Mint · Wazuh 4.7.4 · VirtualBox · Windows Server 2022 · Kali Linux ·  Hydra · Windows Firewall · Docker
 
 ---
 
