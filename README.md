@@ -31,7 +31,7 @@
 
 This project documents the end-to-end build of a home-based Security Operations Center (SOC) using commodity hardware. Running on a repurposed Linux Mint laptop, the environment simulates realistic enterprise attack scenarios and demonstrates live threat detection through a self-hosted SIEM.
 
-The core objective was to bridge theory and practice: configure a real SIEM, generate authentic attack telemetry, write custom detection rules, and respond to incidents — all without cloud spend.
+The core objective was to bridge theory and practice: configure a real SIEM, generate authentic attack telemetry, write custom detection rules, and respond to incidents. *Disclaimer not really a disclaimer but this project was AI assisted
 
 **Key outcomes:**
 - Deployed Wazuh 4.7.4 via Docker on constrained hardware
@@ -303,4 +303,4 @@ Uninstall any existing agent via Windows Add/Remove Programs, then run `setup-ag
 
 ---
 
-*Built for learning. Documented for the community.*
+*Thanks for looking.*
