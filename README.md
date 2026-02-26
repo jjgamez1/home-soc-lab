@@ -150,7 +150,7 @@ home-soc-lab/
 ---
 
 ## Quick Start
-I dont expect anyone to actually try to recreate this but here ya go.
+I dont expect anyone to actually try and recreate this but here ya go.
 ### Prerequisites
 
 - Docker Engine + Docker Compose V2
